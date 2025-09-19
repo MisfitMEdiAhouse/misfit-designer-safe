@@ -1,7 +1,0 @@
-{
-  "functions": {
-    "api/send-to-print.js": {
-      "runtime": "edge"
-    }
-  }
-}
