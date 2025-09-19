@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Misfit Designer — Safe Mode</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial; margin:0; padding:16px; background:#0b0b0b; color:#f2f2f2}
+    .wrap{max-width:960px; margin:0 auto}
+    .card{background:#151515; border:1px solid #222; border-radius:16px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,.3)}
+    label{display:block; font-size:14px; opacity:.9; margin:12px 0 6px}
+    input[type="file"], input[type="text"], select, button{width:100%; padding:10px; border-radius:10px; border:1px solid #2a2a2a; background:#0f0f0f; color:#f2f2f2}
+    button{cursor:pointer}
+    .grid{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+    canvas{width:100%; max-height:60vh; background:#0a0a0a; border:1px dashed #333; border-radius:12px}
+    .row{display:flex; gap:8px}
+    .row > *{flex:1}
+    .hint{font-size:12px; opacity:.7}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Misfit Designer — Safe Mode</h1>
+    <p class="hint">Minimal build to bypass crashes. Snap/center defaults on.</p>
+    <div class="grid">
+      <div class="card">
+        <label>Upload image (PNG/JPG)</label>
+        <input id="file" type="file" accept="image/png,image/jpeg" />
+        <label>Add text</label>
+        <input id="text" type="text" placeholder="Type something…" />
+        <div class="row">
+          <div>
+            <label>Font</label>
+            <select id="font">
+              <option value="Inter">Inter</option>
+              <option value="Arial">Arial</option>
+              <option value="Impact">Impact</option>
+              <option value="Times New Roman">Times New Roman</option>
+            </select>
+          </div>
+          <div>
+            <label>Size</label>
+            <select id="size">
+              <option>48</option>
+              <option selected>72</option>
+              <option>96</option>
+              <option>128</option>
+            </select>
+          </div>
+        </div>
+        <label>Email to send proof</label>
+        <input id="email" type="text" placeholder="you@example.com" />
+        <button id="send">Send to Print Shop</button>
+        <p id="status" class="hint"></p>
+      </div>
+      <div class="card">
+        <canvas id="c" width="1600" height="1600" aria-label="Design canvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+<script>
+const c = document.getElementById('c');
+const ctx = c.getContext('2d', {willReadFrequently: false});
+let img = null;
+const state = { text:'', font:'Inter', size:72 };
+
+function draw(){
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0,0,c.width,c.height);
+
+  if(img){
+    const maxSide = 1500;
+    const scale = Math.min(maxSide/img.width, maxSide/img.height, 1);
+    const w = Math.floor(img.width*scale);
+    const h = Math.floor(img.height*scale);
+    const x = Math.floor((c.width - w)/2);
+    const y = Math.floor((c.height - h)/2);
+    ctx.drawImage(img, x, y, w, h);
+  }
+
+  if(state.text){
+    ctx.font = `${state.size}px ${state.font}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(255,255,255,0.35)';
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = '#fff';
+    ctx.fillText(state.text, c.width/2, c.height*0.85);
+    ctx.shadowBlur = 0;
+  }
+
+  // center guides
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(c.width/2, 0);
+  ctx.lineTo(c.width/2, c.height);
+  ctx.moveTo(0, c.height/2);
+  ctx.lineTo(c.width, c.height/2);
+  ctx.stroke();
+}
+
+draw();
+
+document.getElementById('file').addEventListener('change', e=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  if(f.size > 12*1024*1024){ alert('Image too large (>12MB).'); return; }
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    img = new Image();
+    img.onload = ()=>draw();
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(f);
+});
+
+document.getElementById('text').addEventListener('input', e=>{ state.text = e.target.value.slice(0,140); draw(); });
+document.getElementById('font').addEventListener('change', e=>{ state.font = e.target.value; draw(); });
+document.getElementById('size').addEventListener('change', e=>{ state.size = parseInt(e.target.value,10)||72; draw(); });
+
+async function send(){
+  const status = document.getElementById('status');
+  status.textContent = 'Preparing…';
+  const pngDataUrl = c.toDataURL('image/png');
+  const b64 = pngDataUrl.split(',')[1];
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${c.width}' height='${c.height}'><image href='${pngDataUrl}' x='0' y='0' width='${c.width}' height='${c.height}'/></svg>`;
+  const svgB64 = btoa(unescape(encodeURIComponent(svg)));
+  const payload = {
+    toEmail: document.getElementById('email').value || '',
+    shopEmail: 'orders@misfitmediahouse.com',
+    meta: { app:'misfit-safe', ts: new Date().toISOString() },
+    attachments: [
+      { filename:'design.png', content:b64, contentType:'image/png' },
+      { filename:'design.svg', content:svgB64, contentType:'image/svg+xml' }
+    ]
+  };
+  try{
+    const res = await fetch('/api/send-to-print', {
+      method: 'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const j = await res.json();
+    status.textContent = j.ok ? 'Sent! Check your inbox(es).' : ('Error: '+(j.error||res.status));
+  }catch(err){
+    status.textContent = 'Network error.';
+  }
+}
+
+document.getElementById('send').addEventListener('click', send);
+</script>
+</body>
+</html>
