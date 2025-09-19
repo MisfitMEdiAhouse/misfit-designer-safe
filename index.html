@@ -21,7 +21,7 @@
 <body>
   <div class="wrap">
     <h1>Misfit Designer — Safe Mode</h1>
-    <p class="hint">Minimal build to bypass crashes. Snap/center defaults on.</p>
+    <p class="hint">Minimal build to bypass crashes. Snap/center defaults on. Re-enable extras later.</p>
     <div class="grid">
       <div class="card">
         <label>Upload image (PNG/JPG)</label>
@@ -61,7 +61,7 @@
 
 <script>
 const c = document.getElementById('c');
-const ctx = c.getContext('2d', {willReadFrequently: false});
+const ctx = c.getContext('2d');
 let img = null;
 const state = { text:'', font:'Inter', size:72 };
 
@@ -90,9 +90,7 @@ function draw(){
     ctx.shadowBlur = 0;
   }
 
-  // center guides
   ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-  ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(c.width/2, 0);
   ctx.lineTo(c.width/2, c.height);
@@ -100,7 +98,6 @@ function draw(){
   ctx.lineTo(c.width, c.height/2);
   ctx.stroke();
 }
-
 draw();
 
 document.getElementById('file').addEventListener('change', e=>{
@@ -115,7 +112,6 @@ document.getElementById('file').addEventListener('change', e=>{
   };
   reader.readAsDataURL(f);
 });
-
 document.getElementById('text').addEventListener('input', e=>{ state.text = e.target.value.slice(0,140); draw(); });
 document.getElementById('font').addEventListener('change', e=>{ state.font = e.target.value; draw(); });
 document.getElementById('size').addEventListener('change', e=>{ state.size = parseInt(e.target.value,10)||72; draw(); });
@@ -148,7 +144,6 @@ async function send(){
     status.textContent = 'Network error.';
   }
 }
-
 document.getElementById('send').addEventListener('click', send);
 </script>
 </body>
