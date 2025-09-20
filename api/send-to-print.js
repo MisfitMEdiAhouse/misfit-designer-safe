@@ -1,23 +1,35 @@
-// Vercel serverless function — Safe Mode
+// Edge Function for sending proofs via Resend
 export const config = { runtime: 'edge' };
 
 export default async function handler(req) {
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ ok:false, error:'Method not allowed' }), { status: 405 });
   }
+
   try {
     const body = await req.json();
-    const { toEmail = '', shopEmail = 'orders@misfitmediahouse.com', attachments = [], meta = {} } = body || {};
+    const { toEmail = '', shopEmail = '', attachments = [], meta = {} } = body || {};
 
     const RESEND_API_KEY = process.env.RESEND_API_KEY;
     if (!RESEND_API_KEY) {
       return new Response(JSON.stringify({ ok:false, error:'Missing RESEND_API_KEY' }), { status: 500 });
     }
-    const subject = `Misfit Proof — ${new Date().toISOString()}`;
 
+    // After you verify the domain in Resend, this will work:
+    // Resend → Domains: add misfitmediahouse.com and verify SPF + DKIM in GoDaddy
+    const fromAddress = 'Misfit Print <orders@misfitmediahouse.com>';
+
+    const recipients = [];
+    if (shopEmail) recipients.push(shopEmail);
+    if (toEmail) recipients.push(toEmail);
+    if (recipients.length === 0) {
+      return new Response(JSON.stringify({ ok:false, error:'No destination email provided.' }), { status: 400 });
+    }
+
+    const subject = `Misfit Proof — ${new Date().toISOString()}`;
     const mailPayload = {
-      from: 'Misfit Print <orders@misfitmediahouse.com>',
-      to: [shopEmail].concat(toEmail ? [toEmail] : []),
+      from: fromAddress,
+      to: recipients,
       subject,
       html: `<div style="font-family:Inter,Arial,sans-serif">
         <h2>Misfit Designer — Proof</h2>
@@ -25,7 +37,7 @@ export default async function handler(req) {
         <pre>${JSON.stringify(meta, null, 2)}</pre>
         <p>Attachments included (PNG + SVG).</p>
       </div>`,
-      attachments: attachments.map(a => ({
+      attachments: (attachments || []).map(a => ({
         filename: a.filename,
         content: a.content,
         content_type: a.contentType || 'application/octet-stream'
@@ -40,10 +52,13 @@ export default async function handler(req) {
       },
       body: JSON.stringify(mailPayload)
     });
+
     const data = await resp.json();
     if (!resp.ok) {
-      return new Response(JSON.stringify({ ok:false, error: data?.message || 'Resend error', data }), { status: 500 });
+      const msg = data?.message || 'Resend error';
+      return new Response(JSON.stringify({ ok:false, error: msg, data }), { status: 500 });
     }
+
     return new Response(JSON.stringify({ ok:true, id: data?.id || null }), { status: 200 });
   } catch (e) {
     return new Response(JSON.stringify({ ok:false, error: e.message || 'Unknown error' }), { status: 500 });
