@@ -116,7 +116,6 @@ function draw(){
     ctx.shadowBlur = 0;
   }
 
-  // snap guides
   ctx.strokeStyle = 'rgba(255,255,255,0.12)';
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -126,17 +125,18 @@ function draw(){
 }
 draw();
 
-function setImageFromDataUrl(dataUrl){
+function setImageFromUrl(url){
   const newImg = new Image();
+  newImg.crossOrigin = 'anonymous';
   newImg.onload = ()=>{ img = newImg; draw(); };
-  newImg.src = dataUrl;
+  newImg.src = url;
 }
 
 document.getElementById('file').addEventListener('change', e=>{
   const f = e.target.files[0]; if(!f) return;
   if(f.size > 12*1024*1024){ alert('Image too large (>12MB).'); return; }
   const reader = new FileReader();
-  reader.onload = ev=> setImageFromDataUrl(ev.target.result);
+  reader.onload = ev=> setImageFromUrl(ev.target.result);
   reader.readAsDataURL(f);
 });
 document.getElementById('text').addEventListener('input', e=>{ state.text = e.target.value.slice(0,140); draw(); });
@@ -185,9 +185,8 @@ document.getElementById('gen').addEventListener('click', async ()=>{
     const j = await res.json();
     if(!j.ok){ genStatus.textContent = 'Error: ' + (j.error || 'Unknown'); return; }
 
-    // We expect base64 PNG in j.imageB64
-    const dataUrl = 'data:image/png;base64,' + j.imageB64;
-    setImageFromDataUrl(dataUrl);
+    // Use returned URL
+    setImageFromUrl(j.url);
     genStatus.textContent = 'Done.';
   }catch(err){
     genStatus.textContent = 'Network error.';
