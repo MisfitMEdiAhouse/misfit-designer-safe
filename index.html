@@ -13,9 +13,10 @@
     .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
     .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
     label{display:block;font-size:13px;color:var(--muted);margin:12px 0 6px}
-    input[type="file"],input[type="text"],input[type="email"],select,button{
+    input[type="file"],input[type="text"],input[type="email"],textarea,select,button{
       width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#0f0f0f;color:var(--text)
     }
+    textarea{min-height:72px;resize:vertical}
     button{cursor:pointer}
     .row{display:flex;gap:10px}
     .row>*{flex:1}
@@ -32,6 +33,13 @@
       <div class="card">
         <label>Upload image (PNG/JPG)</label>
         <input id="file" type="file" accept="image/png,image/jpeg" />
+
+        <label>Or generate with AI (prompt)</label>
+        <textarea id="prompt" placeholder="cyberpunk skull with neon roses, sticker style, high detail"></textarea>
+        <div class="actions" style="margin-top:8px">
+          <button id="gen">Generate Image</button>
+        </div>
+        <p id="genStatus" class="hint"></p>
 
         <label>Add text</label>
         <input id="text" type="text" placeholder="Type something…" />
@@ -85,10 +93,8 @@ let img = null;
 const state = { text:'', font:'Inter', size:72 };
 
 function draw(){
-  // clear
   ctx.fillStyle = '#111'; ctx.fillRect(0,0,c.width,c.height);
 
-  // image contain & centered
   if(img){
     const maxSide = 1500;
     const scale = Math.min(maxSide/img.width, maxSide/img.height, 1);
@@ -99,7 +105,6 @@ function draw(){
     ctx.drawImage(img, x, y, w, h);
   }
 
-  // text centered near bottom w/ soft glow
   if(state.text){
     ctx.font = `${state.size}px ${state.font}`;
     ctx.textAlign = 'center';
@@ -121,15 +126,17 @@ function draw(){
 }
 draw();
 
+function setImageFromDataUrl(dataUrl){
+  const newImg = new Image();
+  newImg.onload = ()=>{ img = newImg; draw(); };
+  newImg.src = dataUrl;
+}
+
 document.getElementById('file').addEventListener('change', e=>{
   const f = e.target.files[0]; if(!f) return;
   if(f.size > 12*1024*1024){ alert('Image too large (>12MB).'); return; }
   const reader = new FileReader();
-  reader.onload = ev=>{
-    img = new Image();
-    img.onload = ()=>draw();
-    img.src = ev.target.result;
-  };
+  reader.onload = ev=> setImageFromDataUrl(ev.target.result);
   reader.readAsDataURL(f);
 });
 document.getElementById('text').addEventListener('input', e=>{ state.text = e.target.value.slice(0,140); draw(); });
@@ -162,6 +169,32 @@ document.getElementById('dlSvg').addEventListener('click', ()=>{
   download('design.svg', svg, 'image/svg+xml');
 });
 
+// === AI Generate ===
+document.getElementById('gen').addEventListener('click', async ()=>{
+  const genStatus = document.getElementById('genStatus');
+  const prompt = (document.getElementById('prompt')?.value || '').trim();
+  if(!prompt){ genStatus.textContent = 'Enter a prompt first.'; return; }
+  genStatus.textContent = 'Generating…';
+
+  try{
+    const res = await fetch('/api/generate-image', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ prompt, size: '1024x1024' })
+    });
+    const j = await res.json();
+    if(!j.ok){ genStatus.textContent = 'Error: ' + (j.error || 'Unknown'); return; }
+
+    // We expect base64 PNG in j.imageB64
+    const dataUrl = 'data:image/png;base64,' + j.imageB64;
+    setImageFromDataUrl(dataUrl);
+    genStatus.textContent = 'Done.';
+  }catch(err){
+    genStatus.textContent = 'Network error.';
+  }
+});
+
+// === Send to Print ===
 async function send(){
   const status = document.getElementById('status');
   status.textContent = 'Preparing…';
