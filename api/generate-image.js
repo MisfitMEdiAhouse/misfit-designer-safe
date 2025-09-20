@@ -17,7 +17,7 @@ export default async function handler(req) {
       return new Response(JSON.stringify({ ok:false, error:'Missing OPENAI_API_KEY' }), { status: 500 });
     }
 
-    // OpenAI Images API (returns base64)
+    // Call OpenAI Images API (returns URL by default)
     const resp = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: {
@@ -27,8 +27,7 @@ export default async function handler(req) {
       body: JSON.stringify({
         model: 'gpt-image-1',
         prompt,
-        size,
-        response_format: 'b64_json'
+        size
       })
     });
 
@@ -38,12 +37,13 @@ export default async function handler(req) {
       return new Response(JSON.stringify({ ok:false, error: msg, data }), { status: 500 });
     }
 
-    const b64 = data?.data?.[0]?.b64_json;
-    if (!b64) {
+    // Use the image URL returned
+    const url = data?.data?.[0]?.url;
+    if (!url) {
       return new Response(JSON.stringify({ ok:false, error:'No image returned' }), { status: 500 });
     }
 
-    return new Response(JSON.stringify({ ok:true, imageB64: b64 }), { status: 200 });
+    return new Response(JSON.stringify({ ok:true, url }), { status: 200 });
   } catch (e) {
     return new Response(JSON.stringify({ ok:false, error: e.message || 'Unknown error' }), { status: 500 });
   }
