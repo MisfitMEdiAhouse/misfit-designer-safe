@@ -3,25 +3,31 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Misfit Designer — Safe Mode</title>
+  <title>Misfit Designer</title>
   <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial; margin:0; padding:16px; background:#0b0b0b; color:#f2f2f2}
-    .wrap{max-width:960px; margin:0 auto}
-    .card{background:#151515; border:1px solid #222; border-radius:16px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,.3)}
-    label{display:block; font-size:14px; opacity:.9; margin:12px 0 6px}
-    input[type="file"], input[type="text"], select, button{width:100%; padding:10px; border-radius:10px; border:1px solid #2a2a2a; background:#0f0f0f; color:#f2f2f2}
+    :root{--bg:#0b0b0b;--card:#141414;--line:#232323;--text:#f2f2f2;--muted:#9aa0a6}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial}
+    .wrap{max-width:1100px;margin:0 auto;padding:18px}
+    h1{margin:8px 0 16px;font-size:22px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+    label{display:block;font-size:13px;color:var(--muted);margin:12px 0 6px}
+    input[type="file"],input[type="text"],input[type="email"],select,button{
+      width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#0f0f0f;color:var(--text)
+    }
     button{cursor:pointer}
-    .grid{display:grid; grid-template-columns:1fr 1fr; gap:16px}
-    canvas{width:100%; max-height:60vh; background:#0a0a0a; border:1px dashed #333; border-radius:12px}
-    .row{display:flex; gap:8px}
-    .row > *{flex:1}
-    .hint{font-size:12px; opacity:.7}
+    .row{display:flex;gap:10px}
+    .row>*{flex:1}
+    canvas{width:100%;max-height:68vh;background:#0a0a0a;border:1px dashed #2b2b2b;border-radius:12px}
+    .hint{font-size:12px;color:var(--muted);margin:6px 0}
+    .actions{display:flex;gap:10px;margin-top:12px}
+    .actions button{flex:1}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>Misfit Designer — Safe Mode</h1>
-    <p class="hint">Minimal build. Snap/center defaults on.</p>
+    <h1>Misfit Designer</h1>
     <div class="grid">
       <div class="card">
         <label>Upload image (PNG/JPG)</label>
@@ -29,6 +35,7 @@
 
         <label>Add text</label>
         <input id="text" type="text" placeholder="Type something…" />
+
         <div class="row">
           <div>
             <label>Font</label>
@@ -50,24 +57,17 @@
           </div>
         </div>
 
-        <label>Choose Shop</label>
-        <select id="shopPreset">
-          <option value="custom" selected>— Custom (enter shop email) —</option>
-          <option value="adpro">AdPro (Local)</option>
-          <option value="roads">Roads Supply</option>
-        </select>
+        <label>Your Email (optional copy)</label>
+        <input id="email" type="email" placeholder="you@example.com" />
 
         <label>Shop Email</label>
-        <input id="shopEmail" type="text" placeholder="printshop@example.com" />
-        <p class="hint">Proofs go to this address (PNG + SVG attachments).</p>
+        <input id="shopEmail" type="email" placeholder="printshop@example.com" />
+        <p class="hint">Proofs go to this address with PNG + SVG attachments.</p>
 
-        <label>Email to send proof (you)</label>
-        <input id="email" type="text" placeholder="you@example.com" />
-
-        <button id="send">Send to Print Shop</button>
-        <div class="row" style="margin-top:8px">
-          <button id="dlPng" type="button">Download PNG</button>
-          <button id="dlSvg" type="button">Download SVG</button>
+        <div class="actions">
+          <button id="send">Send to Print Shop</button>
+          <button id="dlPng">Download PNG</button>
+          <button id="dlSvg">Download SVG</button>
         </div>
         <p id="status" class="hint"></p>
       </div>
@@ -80,12 +80,15 @@
 
 <script>
 const c = document.getElementById('c');
-const ctx = c.getContext('2d', {willReadFrequently: false});
+const ctx = c.getContext('2d', { willReadFrequently:false });
 let img = null;
 const state = { text:'', font:'Inter', size:72 };
 
 function draw(){
+  // clear
   ctx.fillStyle = '#111'; ctx.fillRect(0,0,c.width,c.height);
+
+  // image contain & centered
   if(img){
     const maxSide = 1500;
     const scale = Math.min(maxSide/img.width, maxSide/img.height, 1);
@@ -95,100 +98,103 @@ function draw(){
     const y = Math.floor((c.height - h)/2);
     ctx.drawImage(img, x, y, w, h);
   }
+
+  // text centered near bottom w/ soft glow
   if(state.text){
     ctx.font = `${state.size}px ${state.font}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.shadowColor = 'rgba(255,255,255,0.35)'; ctx.shadowBlur = 10;
+    ctx.shadowColor = 'rgba(255,255,255,0.35)';
+    ctx.shadowBlur = 10;
     ctx.fillStyle = '#fff';
     ctx.fillText(state.text, c.width/2, c.height*0.85);
     ctx.shadowBlur = 0;
   }
+
+  // snap guides
   ctx.strokeStyle = 'rgba(255,255,255,0.12)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(c.width/2, 0); ctx.lineTo(c.width/2, c.height);
-  ctx.moveTo(0, c.height/2); ctx.lineTo(c.width, c.height/2);
+  ctx.moveTo(c.width/2,0); ctx.lineTo(c.width/2,c.height);
+  ctx.moveTo(0,c.height/2); ctx.lineTo(c.width,c.height/2);
   ctx.stroke();
 }
-
-function currentPngDataUrl(){ return c.toDataURL('image/png'); }
-function currentSvgBase64(){
-  const png = currentPngDataUrl();
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${c.width}' height='${c.height}'><image href='${png}' x='0' y='0' width='${c.width}' height='${c.height}'/></svg>`;
-  return btoa(unescape(encodeURIComponent(svg)));
-}
-
 draw();
 
 document.getElementById('file').addEventListener('change', e=>{
   const f = e.target.files[0]; if(!f) return;
   if(f.size > 12*1024*1024){ alert('Image too large (>12MB).'); return; }
   const reader = new FileReader();
-  reader.onload = ev=>{ img = new Image(); img.onload = ()=>draw(); img.src = ev.target.result; };
+  reader.onload = ev=>{
+    img = new Image();
+    img.onload = ()=>draw();
+    img.src = ev.target.result;
+  };
   reader.readAsDataURL(f);
 });
 document.getElementById('text').addEventListener('input', e=>{ state.text = e.target.value.slice(0,140); draw(); });
 document.getElementById('font').addEventListener('change', e=>{ state.font = e.target.value; draw(); });
 document.getElementById('size').addEventListener('change', e=>{ state.size = parseInt(e.target.value,10)||72; draw(); });
 
-const shopPresetEl = document.getElementById('shopPreset');
-const shopEmailEl  = document.getElementById('shopEmail');
-(function hydrateShopPrefs(){
-  const lastEmail = localStorage.getItem('misfit.shopEmail');
-  const lastPreset = localStorage.getItem('misfit.shopPreset');
-  if (lastEmail) shopEmailEl.value = lastEmail;
-  if (lastPreset) shopPresetEl.value = lastPreset;
-})();
-shopPresetEl.addEventListener('change', () => {
-  let email = '';
-  switch (shopPresetEl.value) {
-    case 'adpro':  email = 'orders@adpromarketing.com'; break; // replace as needed
-    case 'roads':  email = 'print@roadssupply.com'; break;     // replace as needed
-    case 'custom': email = ''; break;
-  }
-  shopEmailEl.value = email;
-  localStorage.setItem('misfit.shopPreset', shopPresetEl.value);
-});
-shopEmailEl.addEventListener('input', () => {
-  localStorage.setItem('misfit.shopEmail', shopEmailEl.value.trim());
-});
-
-document.getElementById('dlPng').addEventListener('click', () => {
+function pngDataUrl(){ return c.toDataURL('image/png'); }
+function svgText(){
+  const png = pngDataUrl();
+  return `<svg xmlns='http://www.w3.org/2000/svg' width='${c.width}' height='${c.height}'>
+    <image href='${png}' x='0' y='0' width='${c.width}' height='${c.height}'/>
+  </svg>`;
+}
+function download(filename, content, type='application/octet-stream'){
+  const blob = new Blob([content], { type });
   const a = document.createElement('a');
-  a.href = currentPngDataUrl(); a.download = 'design.png'; a.click();
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+}
+document.getElementById('dlPng').addEventListener('click', ()=>{
+  const b64 = atob(pngDataUrl().split(',')[1]);
+  const buf = new Uint8Array(b64.length);
+  for(let i=0;i<b64.length;i++) buf[i] = b64.charCodeAt(i);
+  download('design.png', buf, 'image/png');
 });
-document.getElementById('dlSvg').addEventListener('click', () => {
-  const a = document.createElement('a');
-  a.href = 'data:image/svg+xml;base64,' + currentSvgBase64(); a.download = 'design.svg'; a.click();
+document.getElementById('dlSvg').addEventListener('click', ()=>{
+  const svg = svgText();
+  download('design.svg', svg, 'image/svg+xml');
 });
 
 async function send(){
   const status = document.getElementById('status');
   status.textContent = 'Preparing…';
 
+  const png = pngDataUrl();
+  const b64 = png.split(',')[1];
+  const svg = svgText();
+  const svgB64 = btoa(unescape(encodeURIComponent(svg)));
+
+  const toEmail = (document.getElementById('email')?.value || '').trim();
+  const shopEmail = (document.getElementById('shopEmail')?.value || '').trim();
+
   const payload = {
-    toEmail: document.getElementById('email').value || '',
-    shopEmail: shopEmailEl.value.trim() || '',
-    meta: { app:'misfit-safe', ts: new Date().toISOString(), preset: shopPresetEl.value, font: state.font, size: state.size, text: state.text },
+    toEmail,
+    shopEmail,
+    meta: { app:'misfit', ts: new Date().toISOString() },
     attachments: [
-      { filename:'design.png', content: currentPngDataUrl().split(',')[1], contentType:'image/png' },
-      { filename:'design.svg', content: currentSvgBase64(), contentType:'image/svg+xml' }
+      { filename:'design.png', content:b64, contentType:'image/png' },
+      { filename:'design.svg', content:svgB64, contentType:'image/svg+xml' }
     ]
   };
 
-  if (!payload.shopEmail && !payload.toEmail){
-    status.textContent = 'Add your email or a shop email.'; return;
-  }
-
   try{
     const res = await fetch('/api/send-to-print', {
-      method: 'POST', headers:{'Content-Type':'application/json'},
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
       body: JSON.stringify(payload)
     });
     const j = await res.json();
-    status.textContent = j.ok ? 'Sent! Check your inbox(es).' : ('Error: '+(j.error||res.status));
-  }catch{ status.textContent = 'Network error.'; }
+    status.textContent = j.ok ? 'Sent! Check inbox(es).' : ('Error: ' + (j.error || 'Unknown'));
+  }catch(err){
+    status.textContent = 'Network error.';
+  }
 }
 document.getElementById('send').addEventListener('click', send);
 </script>
